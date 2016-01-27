@@ -26,6 +26,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.data.domain.Sort.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.SingleColumnRowMapper;
 import org.springframework.jdbc.core.SqlParameterValue;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -213,7 +215,7 @@ public abstract class JdbcRepository<T extends Identified<Long>> extends RowMapp
 		}
 	}
 
-	protected List<T> findByIds(final Collection<Long> ids) {
+	public List<T> findByIds(final Collection<Long> ids) {
 		log.trace("SQL OUT: " + this.selectById + "; id = " + ids);
 		final List<T> result = jdbcTemplate.query(this.selectByIds, this.rowMapper, ids);
 		return result;
@@ -531,6 +533,10 @@ public abstract class JdbcRepository<T extends Identified<Long>> extends RowMapp
 		return map;
 	}
 
+	public Map<Long, T> mapByIds(final Collection<Long> ids) {
+		return findByIds(ids).stream().collect(Collectors.toMap(o -> o.getId(), o -> o));
+	}
+
 	public String getTableName() {
 		return tableName;
 	}
@@ -544,5 +550,32 @@ public abstract class JdbcRepository<T extends Identified<Long>> extends RowMapp
 		log.trace("SQL OUT: " + deleteStatement + "; " + paramsToString(parameterSource));
 		final int updated = namedTemplate.update(deleteStatement, parameterSource);
 		return updated;
+	}
+
+	// Inspired by
+	// https://github.com/spring-projects/spring-framework/pull/724
+	// https://jira.spring.io/browse/SPR-12662
+	public Optional<T> queryForOptional(final String sql, final RowMapper<T> rowMapper, final Object... args) {
+		final List<T> list = jdbcTemplate.query(sql, rowMapper, args);
+
+		if (list == null || list.size() == 0) {
+			return Optional.empty();
+		}
+
+		return Optional.ofNullable(list.iterator().next());
+
+	}
+
+	public <U> Optional<U> queryForOptional(final String sql, final Class<U> requiredType, final Object... args) {
+
+		final SingleColumnRowMapper<U> scrm = new SingleColumnRowMapper<>(requiredType);
+
+		final List<U> list = jdbcTemplate.query(sql, scrm, args);
+
+		if (list == null || list.size() == 0) {
+			return Optional.empty();
+		}
+
+		return Optional.ofNullable(list.iterator().next());
 	}
 }
