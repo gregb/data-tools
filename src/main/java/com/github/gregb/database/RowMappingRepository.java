@@ -133,45 +133,54 @@ public class RowMappingRepository<T> extends ReflectionHelper<T> {
 					final PropertyHelper propertyHelper = propertiesByColumn.get(columnName);
 
 					// first attempt to have the driver coerce the value to what we expect
-					Object columnValue;
+
 					try {
-						columnValue = rs.getObject(columnName, propertyHelper.getType());
+						final Object unConvertedValue = rs.getObject(columnName, propertyHelper.getType());
+
+						try {
+							propertyHelper.setValue(instance, unConvertedValue);
+						} catch (final IllegalArgumentException e1) {
+							throw new RuntimeException("Error setting member value on: " + entityClass + "." + columnName + " = " + unConvertedValue + "(" + unConvertedValue.getClass() + ")", e1);
+						}
+
+						continue;
+
 					} catch (final SQLException e) {
 						log.warn("Driver coercion to desired type failed: " + e.getMessage());
 						// if that fails, just get it as an object and we can try to coerce it
 						// ourselves
-						columnValue = rs.getObject(columnName);
 					}
 
-					if (propertyHelper != null) {
-						if (columnValue != null) {
-							Function<Object, Object> converter = (Function<Object, Object>) converters.get(columnName);
+					Object columnValue = rs.getObject(columnName);
+
+
+					if (columnValue != null) {
+						Function<Object, Object> converter = (Function<Object, Object>) converters.get(columnName);
+						if (converter != null) {
+							columnValue = converter.apply(columnValue);
+						} else {
+							log.trace("No converter found for column " + columnName + "; trying again to see if previous queries missed it");
+							final String columnClassName = resultSetMetaData.getColumnClassName(i);
+							converter = selectConverter(columnClassName, columnName);
+
 							if (converter != null) {
 								columnValue = converter.apply(columnValue);
 							} else {
-								log.trace("No converter found for column " + columnName + "; trying again to see if previous queries missed it");
-								final String columnClassName = resultSetMetaData.getColumnClassName(i);
-								converter = selectConverter(columnClassName, columnName);
-
-								if (converter != null) {
-									columnValue = converter.apply(columnValue);
-								} else {
-									log.error("No converters found after second try -- attempting to set directly");
-								}
-							}
-
-							// last attempt
-							try {
-								propertyHelper.setValue(instance, columnValue);
-							} catch (final IllegalArgumentException e1) {
-								throw new RuntimeException("Error setting member value on: " + entityClass + "." + columnName + " = " + columnValue + "(" + columnValue.getClass() + ")", e1);
+								log.error("No converters found after second try -- attempting to set directly");
 							}
 						}
-					} else {
+
 						if (instance instanceof PropertyContainer) {
 							final PropertyContainer container = (PropertyContainer) instance;
 							final String propertyName = CaseFormat.LOWER_UNDERSCORE.to(CaseFormat.LOWER_CAMEL, columnName);
 							container.set(propertyName, columnValue);
+						}
+
+						// last attempt
+						try {
+							propertyHelper.setValue(instance, columnValue);
+						} catch (final IllegalArgumentException e1) {
+							throw new RuntimeException("Error setting member value on: " + entityClass + "." + columnName + " = " + columnValue + "(" + columnValue.getClass() + ")", e1);
 						}
 					}
 				}
