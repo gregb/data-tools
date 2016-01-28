@@ -65,6 +65,10 @@ public abstract class JdbcRepository<T extends Identified<Long>> extends RowMapp
 
 	private static final Map<Class<? extends JdbcRepository<? extends Identified<Long>>>, JdbcRepository<?>> repositoriesByEntity = new HashMap<>();
 
+	public static enum SaveAction {
+		INSERT, UPDATE, NONE;
+	}
+
 	@SuppressWarnings("unchecked")
 	public JdbcRepository(final Class<T> entityClass) {
 		super(entityClass);
@@ -578,4 +582,15 @@ public abstract class JdbcRepository<T extends Identified<Long>> extends RowMapp
 
 		return Optional.ofNullable(list.iterator().next());
 	}
+
+	public SaveAction save(final T t) {
+		if (t.getId() != null) {
+			final int rowsUpdated = partialUpdate(t);
+			return rowsUpdated > 0 ? SaveAction.UPDATE : SaveAction.NONE;
+		}
+
+		insert(t);
+		return SaveAction.INSERT;
+	}
+
 }
