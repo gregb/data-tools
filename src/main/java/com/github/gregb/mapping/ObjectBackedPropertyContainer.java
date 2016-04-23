@@ -2,10 +2,10 @@ package com.github.gregb.mapping;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,7 +102,7 @@ public class ObjectBackedPropertyContainer<T> implements PropertyContainer {
 	}
 
 	@Override
-	public Set<String> getPropertyNames() {
+	public Collection<String> getPropertyNames() {
 		return properties.keySet();
 	}
 

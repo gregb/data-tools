@@ -1,6 +1,6 @@
 package com.github.gregb.mapping;
 
-import java.util.Set;
+import java.util.Collection;
 
 /**
  * Marks a class as having named properties which can be get and set.
@@ -12,7 +12,7 @@ public interface PropertyContainer extends Iterable<String>
 {
 	public Object get(String propertyName);
 
-	public Set<String> getPropertyNames();
+	public Collection<String> getPropertyNames();
 
 	public void set(String propertyName, Object newValue);
 
